@@ -1,5 +1,4 @@
 # syntax=docker/dockerfile:1
-ARG INCLUDE_DB=false
 
 FROM node:20-slim AS base
 ENV PLAYWRIGHT_SKIP_BROWSER_GC=1
@@ -13,7 +12,7 @@ RUN useradd -m -u 1000 user
 USER user
 
 ENV HOME=/home/user \
-	PATH=/home/user/.local/bin:$PATH
+    PATH=/home/user/.local/bin:$PATH
 
 WORKDIR /app
 
@@ -42,9 +41,9 @@ FROM node:20 AS builder
 
 WORKDIR /app
 
-COPY --link --chown=1000 package-lock.json package.json ./
+COPY --link --chown=1000 package.json package-lock.json ./
 
-ARG APP_BASE=
+ARG APP_BASE=/chat
 ARG PUBLIC_APP_COLOR=blue
 ENV BODY_SIZE_LIMIT=15728640
 
@@ -57,38 +56,12 @@ COPY --link --chown=1000 . .
 RUN git config --global --add safe.directory /app && \
     npm run build
 
-# mongo image
-FROM mongo:7 AS mongo
-
-# image to be used if INCLUDE_DB is false
-FROM base AS local_db_false
-
-# image to be used if INCLUDE_DB is true
-FROM base AS local_db_true
-
-# copy mongo from the other stage
-COPY --from=mongo /usr/bin/mongo* /usr/bin/
-
-ENV MONGODB_URL=mongodb://localhost:27017
-USER root
-RUN mkdir -p /data/db
-RUN chown -R 1000:1000 /data/db
-USER user
 # final image
-FROM local_db_${INCLUDE_DB} AS final
+# Changed base image to node:20-slim
+FROM base AS final
 
-# build arg to determine if the database should be included
-ARG INCLUDE_DB=false
-ENV INCLUDE_DB=${INCLUDE_DB}
+WORKDIR /app
 
-# svelte requires APP_BASE at build time so it must be passed as a build arg
-ARG APP_BASE=
-# tailwind requires the primary theme to be known at build time so it must be passed as a build arg
-ARG PUBLIC_APP_COLOR=blue
-ARG PUBLIC_COMMIT_SHA=
-ENV PUBLIC_COMMIT_SHA=${PUBLIC_COMMIT_SHA}
-ENV BODY_SIZE_LIMIT=15728640
-#import the build & dependencies
 COPY --from=builder --chown=1000 /app/build /app/build
 COPY --from=builder --chown=1000 /app/node_modules /app/node_modules
 

@@ -1,0 +1,33 @@
+FROM ubuntu:22.04
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    wget \
+    cmake \
+    g++ \
+    python3 \
+    python3-pip
+
+# Set up llama.cpp directory
+WORKDIR /app
+
+# Clone llama.cpp repository
+RUN git clone https://github.com/ggerganov/llama.cpp .
+
+
+# Build llama.cpp using CMake
+RUN cmake -B build 
+RUN cmake --build build --config Release -j $(nproc)
+
+
+# Download the model (replace with the actual URL or method)
+# IMPORTANT:  Consider using a volume mount for the model in production
+# to avoid downloading it every time the container is built.
+RUN wget -O models/Meta-Llama-3.1-8B-Instruct-GGUF.gguf "https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf?download=true"
+
+# Expose the port (if you plan to interact with llama.cpp via API)
+EXPOSE 8080
+
+CMD ["./build/bin/llama-server", "-m", "models/Meta-Llama-3.1-8B-Instruct-GGUF.gguf", "--threads", "4", "--host", "0.0.0.0", "--port", "8080"]
